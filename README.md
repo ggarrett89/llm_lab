@@ -68,3 +68,4 @@ vagrant destroy -f
 Depois desta fase, o próximo passo pode ser adicionar um pequeno `AI Service` em Python/FastAPI que consuma a API do Ollama. Esse serviço poderá posteriormente ser extraído/reutilizado como um microserviço independente no projeto Monolith → Microservices.
 # llm_lab
 # llm_lab
+# llm_lab
