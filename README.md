@@ -1,71 +1,196 @@
-# LLM Lab - Fase 1
+# LLM Lab
 
-Lab mínimo para aprender LLM localmente usando Vagrant + VirtualBox + Ubuntu + Docker + Ollama.
+Laboratório para aprender LLMs localmente e, posteriormente, integrar IA ao projeto de microservices.
+
+O projeto é desenvolvido em fases pequenas para que cada componente possa ser reutilizado em outros labs.
+
+## Arquitetura atual
+
+```text
+Host
+ |
+ +-- Vagrant
+      |
+      +-- Ubuntu VM
+           |
+           +-- Ollama
+           |    |
+           |    +-- Qwen 2.5 3B
+           |
+           +-- AI Service (Fase 2)
+                |
+                +-- FastAPI
+                |
+                +-- HTTP -> Ollama
+```
 
 ## Requisitos
 
+Para começar do zero:
+
+- Linux, macOS ou Windows
 - VirtualBox
 - Vagrant
-- CPU com virtualização habilitada
-- Pelo menos ~10 GB de RAM disponíveis para a VM durante o lab
-- Internet para baixar a box, Docker e o modelo
+- Git
+- pelo menos 8 GB de RAM disponíveis para a VM
+- aproximadamente 30 GB de espaço livre em disco
+- Internet na primeira execução para baixar a box e o modelo
 
-## Criar a VM
+A Fase 1 não requer GPU.
+
+## Fase 1 — LLM local
 
 ```bash
 vagrant up
-```
-
-A VM terá:
-
-- 4 vCPU
-- 8 GB RAM
-- IP `192.168.56.30`
-- Ubuntu 22.04
-- Docker
-- Ollama
-- modelo `qwen2.5:3b`
-
-## Acessar
-
-```bash
 vagrant ssh
+ollama --version
+ollama list
+ollama run qwen2.5:3b
 ```
 
-## Testar Ollama
+### Testar a API do Ollama
+
+Dentro da VM:
 
 ```bash
-curl http://localhost:11434/api/tags
+curl http://localhost:11434/api/generate   -d '{
+    "model": "qwen2.5:3b",
+    "prompt": "Explain what a Kubernetes pod is in one sentence.",
+    "stream": false
+  }'
 ```
 
-Teste uma geração:
+Se retornar JSON contendo `response`, a Fase 1 está funcionando.
+
+## Fase 2 — AI Service
+
+Agora criamos um microserviço Python/FastAPI que abstrai o Ollama:
+
+```text
+Client
+  |
+  | POST /chat
+  v
+AI Service
+  |
+  | POST /api/generate
+  v
+Ollama
+  |
+  v
+Qwen 2.5 3B
+```
+
+### Instalação
+
+Dentro da VM:
 
 ```bash
-curl http://localhost:11434/api/generate \\
-  -d '{"model":"qwen2.5:3b","prompt":"Explain Kubernetes in one sentence.","stream":false}'
+sudo apt update
+sudo apt install -y python3 python3-pip python3-venv
 ```
 
-## Testar do host
+A partir da raiz do projeto:
 
 ```bash
-curl http://192.168.56.30:11434/api/tags
+cd ai-service
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 ```
 
-## Parar a VM
+Inicie o serviço:
 
 ```bash
-vagrant halt
+uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
-## Destruir a VM
+### Testar
+
+Health check:
 
 ```bash
-vagrant destroy -f
+curl http://localhost:8000/health
 ```
 
-## Próxima evolução
+Resultado:
 
-Depois desta fase, o próximo passo pode ser adicionar um pequeno `AI Service` em Python/FastAPI que consuma a API do Ollama. Esse serviço poderá posteriormente ser extraído/reutilizado como um microserviço independente no projeto Monolith → Microservices.
-# llm_lab
-# llm_lab
-# llm_lab
+```json
+{"status":"UP"}
+```
+
+Chamar a LLM através do AI Service:
+
+```bash
+curl -X POST http://localhost:8000/chat   -H "Content-Type: application/json"   -d '{
+    "prompt": "Explain what a Kubernetes pod is in one sentence."
+  }'
+```
+
+Resultado esperado:
+
+```json
+{
+  "model": "qwen2.5:3b",
+  "response": "..."
+}
+```
+
+Swagger:
+
+```text
+http://192.168.56.30:8000/docs
+```
+
+## Configuração
+
+Valores padrão:
+
+```text
+OLLAMA_URL=http://localhost:11434
+OLLAMA_MODEL=qwen2.5:3b
+```
+
+Podem ser alterados por variáveis de ambiente:
+
+```bash
+export OLLAMA_URL=http://localhost:11434
+export OLLAMA_MODEL=qwen2.5:3b
+```
+
+## Estrutura
+
+```text
+llm_lab/
+├── Vagrantfile
+├── README.md
+├── scripts/
+│   └── setup.sh
+└── ai-service/
+    ├── main.py
+    └── requirements.txt
+```
+
+## Roadmap
+
+- [x] Fase 1 — VM + Ollama + modelo local
+- [x] Teste direto da API do Ollama
+- [ ] Fase 2 — AI Service com FastAPI
+- [ ] Containerizar AI Service
+- [ ] RAG
+- [ ] Embeddings
+- [ ] Vector database
+- [ ] Integração com microservices
+- [ ] Kubernetes
+- [ ] GitHub Actions
+- [ ] Argo CD
+- [ ] Observabilidade
+- [ ] Evolução para arquitetura de AI/MLOps
+
+## Princípios
+
+- começar com o mínimo de infraestrutura;
+- separar componentes reutilizáveis;
+- evitar Kubernetes até existir uma razão para utilizá-lo;
+- entender cada camada antes de adicionar outra;
+- manter o AI Service independente para reutilização em outros projetos.
