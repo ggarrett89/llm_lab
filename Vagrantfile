@@ -10,7 +10,7 @@ Vagrant.configure("2") do |config|
 
   config.vm.network "private_network", ip: "192.168.56.30"
 
-  config.vm.synced_folder ".", "/vagrant", disabled: true
+  config.vm.synced_folder ".", "/vagrant"
 
   config.vm.provision "shell", path: "scripts/setup.sh"
 end
